@@ -54,7 +54,8 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: Array.from(allowedOrigins)
+    origin: true,
+    credentials: true
   }
 });
 
@@ -558,14 +559,8 @@ function createYouTubeItem(video, identity) {
 }
 
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.has(origin)) {
-      callback(null, true);
-      return;
-    }
-
-    callback(new Error("Origin not allowed."));
-  }
+  origin: true,
+  credentials: true
 }));
 app.use(express.json());
 app.use("/uploads", express.static(uploadsDir));

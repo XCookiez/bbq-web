@@ -27,4 +27,4 @@ function getQuota() {
     };
 }
 
-module.exports = { addUsage, getQuota };
+export { addUsage, getQuota };

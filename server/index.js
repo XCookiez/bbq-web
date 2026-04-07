@@ -12,6 +12,7 @@ import QRCode from "qrcode";
 import { Server } from "socket.io";
 import { getLocalIpAddress } from "./lib/localNetwork.js";
 import { QueueStore } from "./lib/queueStore.js";
+import { getQuota, addUsage } from "./lib/quotaStore.js";
 
 dotenv.config();
 
@@ -569,6 +570,15 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+app.get("/api/youtube/quota", (_req, res) => {
+  try {
+    const quota = getQuota();
+    res.json(quota);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch quota" });
+  }
+});
+
 app.get("/api/session", async (req, res) => {
   const roomCode = getRoomCode(req.query.room ?? "");
 
@@ -676,6 +686,7 @@ app.get("/api/youtube/search", async (req, res) => {
       }));
 
     setCachedValue(youtubeSearchCache, normalizedQuery, items, youtubeSearchCacheTtlMs);
+    addUsage(100);
     res.json({ items, cached: false });
   } catch (error) {
     res.status(500).json({

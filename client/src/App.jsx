@@ -111,7 +111,7 @@ function AudioVisualizer({ isPlaying = false }) {
   const bars = Array.from({ length: 20 }, (_, index) => (
     <span
       key={index}
-      className={`visualizer-bar ${isPlaying ? "active" : ""}`}
+      className={`visualizer-bar ${isPlaying ? 'active' : ''}`}
       style={{ animationDelay: `${index * 90}ms` }}
     />
   ));
@@ -164,6 +164,8 @@ export default function App() {
   const [resumeToken, setResumeToken] = useState(0);
   const [shouldPromptResume, setShouldPromptResume] = useState(false);
   const [mobileYouTubeNeedsStart, setMobileYouTubeNeedsStart] = useState(false);
+  const [showSkipConfirmation, setShowSkipConfirmation] = useState(false);
+
   const socketRef = useRef(null);
   const searchTimerRef = useRef(null);
   const searchAbortRef = useRef(null);
@@ -180,6 +182,7 @@ export default function App() {
   const activeLyricIndex = getActiveLyricIndex(syncedLyrics, sessionState?.currentPositionMs ?? 0);
   const hasSyncedLyrics = syncedLyrics.length > 0;
   const hasActiveRoom = Boolean(roomCode && role);
+  const [volume, setVolume] = useState(1);
   const [quota, setQuota] = useState(null);
   const showVisibleMobileVideo = Boolean(
     isHostView &&
@@ -409,6 +412,21 @@ export default function App() {
     }
   }
 
+  async function fetchQuota() {
+    try {
+      const res = await fetch(`${API}/api/youtube/quota`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to fetch quota");
+      }
+
+      setQuota(data);
+    } catch (err) {
+      console.error("Quota fetch failed:", err);
+    }
+  }
+
   useEffect(() => {
     if (!isHostView || !localPlayerRef.current) {
       return;
@@ -470,21 +488,14 @@ export default function App() {
   }, [currentItem?.id, currentItem?.type, isHostView, isMobileDevice, mobileYouTubeNeedsStart, sessionState?.isPlaying]);
 
   useEffect(() => {
-    if (!mobileHostYouTubeUnsupported) {
-      return;
+    if (localPlayerRef.current) {
+      localPlayerRef.current.volume = volume;
     }
 
-    setMobileYouTubeNeedsStart(false);
-    setPlaybackNeedsResume(false);
-    setShouldPromptResume(false);
-    setStatusMessage("YouTube playback requires a desktop host. Use local media on this phone host.");
-
-    if (sessionState?.isPlaying) {
-      socketRef.current?.emit("host:togglePlayback", {
-        isPlaying: false
-      });
+    if (youtubePlayerRef.current) {
+      youtubePlayerRef.current.setVolume(volume);
     }
-  }, [mobileHostYouTubeUnsupported, sessionState?.isPlaying]);
+  }, [volume, currentItem?.type]);
 
   useEffect(() => {
     if (activeNowPlayingTab !== "lyrics" || activeLyricIndex < 0) {
@@ -674,15 +685,33 @@ export default function App() {
   }
 
   async function copyToClipboard(value, label, field) {
+    if (!value) {
+      setErrorMessage(`${label} is not available yet.`);
+      return;
+    }
+
     try {
-      await navigator.clipboard.writeText(value);
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        // Fallback for non-secure contexts
+        const textArea = document.createElement("textarea");
+        textArea.value = value;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+      
       setCopiedField(field);
-      window.setTimeout(() => {
-        setCopiedField((current) => (current === field ? "" : current));
-      }, 1400);
-      setStatusMessage(`${label} copied.`);
+      setStatusMessage(`${label} copied to clipboard!`);
       setErrorMessage("");
-    } catch {
+      
+      setTimeout(() => {
+        setCopiedField("");
+      }, 1500);
+    } catch (err) {
+      console.error("Copy failed:", err);
       setErrorMessage(`Failed to copy ${label.toLowerCase()}.`);
     }
   }
@@ -808,7 +837,16 @@ export default function App() {
   }
 
   function skipCurrent() {
+    setShowSkipConfirmation(true);
+  }
+
+  function confirmSkip() {
+    setShowSkipConfirmation(false);
     socketRef.current?.emit("host:skip");
+  }
+
+  function cancelSkip() {
+    setShowSkipConfirmation(false);
   }
 
   function clearQueue() {
@@ -1015,6 +1053,25 @@ export default function App() {
         </div>
       </section>
 
+      {showSkipConfirmation && isHostView ? (
+        <div className="confirmation-modal-overlay">
+          <div className="confirmation-modal">
+            <div className="confirmation-modal-header">
+              <h2>Skip Current Track?</h2>
+              <p>Are you sure you want to skip "{currentItem?.title}"?</p>
+            </div>
+            <div className="confirmation-modal-actions">
+              <button className="secondary-button" onClick={cancelSkip}>
+                Cancel
+              </button>
+              <button className="primary-button" onClick={confirmSkip}>
+                Skip
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <section className="layout-grid">
         <div className="stack">
           <section className="card now-playing-card">
@@ -1027,28 +1084,27 @@ export default function App() {
             </div>
 
             <div className="tab-row" role="tablist" aria-label="Now playing tabs">
-              <button
-                className={`tab-button ${activeNowPlayingTab === "music" ? "active" : ""}`}
-                type="button"
-                role="tab"
-                aria-selected={activeNowPlayingTab === "music"}
-                onClick={() => setActiveNowPlayingTab("music")}
-              >
-                Music
-              </button>
-              <button
-                className={`tab-button ${activeNowPlayingTab === "lyrics" ? "active" : ""}`}
-                type="button"
-                role="tab"
-                aria-selected={activeNowPlayingTab === "lyrics"}
-                onClick={() => setActiveNowPlayingTab("lyrics")}
-              >
-                Lyric
-              </button>
-            </div>
-
-            {currentItem ? (
-              <>
+              <div className="tab-buttons">
+                <button
+                  className={`tab-button ${activeNowPlayingTab === "music" ? "active" : ""}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeNowPlayingTab === "music"}
+                  onClick={() => setActiveNowPlayingTab("music")}
+                >
+                  Music
+                </button>
+                <button
+                  className={`tab-button ${activeNowPlayingTab === "lyrics" ? "active" : ""}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeNowPlayingTab === "lyrics"}
+                  onClick={() => setActiveNowPlayingTab("lyrics")}
+                >
+                  Lyric
+                </button>
+              </div>
+              {currentItem ? (
                 <div className="now-playing-meta" aria-label="Current playback details">
                   <span className="meta-chip">
                     <span className="meta-label">Added by</span>
@@ -1059,6 +1115,11 @@ export default function App() {
                     <strong>{sessionState?.isPlaying ? "Playing" : "Paused"}</strong>
                   </span>
                 </div>
+              ) : null}
+            </div>
+
+            {currentItem ? (
+              <>
                 {showVisibleMobileVideo ? (
                   <video
                     key={currentItem.id}
@@ -1089,13 +1150,16 @@ export default function App() {
                       resumeToken={resumeToken}
                       visible
                       playbackCheckDelayMs={3000}
+                      volume={volume}
                     />
                     <div className="mobile-youtube-overlay mobile-youtube-message">
                       YouTube playback requires a desktop host.
                     </div>
                   </div>
                 ) : activeNowPlayingTab === "music" ? (
-                  <AudioVisualizer isPlaying={Boolean(sessionState?.isPlaying)} />
+                  <AudioVisualizer 
+                    isPlaying={Boolean(sessionState?.isPlaying)}
+                  />
                 ) : hasSyncedLyrics ? (
                   <div className="lyrics-panel">
                     <div className="lyrics-lines" aria-live="polite">
@@ -1128,6 +1192,7 @@ export default function App() {
                         onPlaybackStarted={handlePlaybackStarted}
                         resumeToken={resumeToken}
                         playbackCheckDelayMs={1200}
+                        volume={volume}
                       />
                     </div>
                   ) : currentItem.mediaKind === "video" && !showVisibleMobileVideo ? (
@@ -1186,12 +1251,28 @@ export default function App() {
                   <button className="secondary-button" onClick={togglePlayback} disabled={!currentItem}>
                     {sessionState?.isPlaying ? "Pause" : "Play"}
                   </button>
-                  <button className="secondary-button" onClick={skipCurrent} disabled={!currentItem}>
+                  <button className="secondary-button" onClick={skipCurrent} disabled={!currentItem || showSkipConfirmation}>
                     Skip
                   </button>
                 </>
               ) : null}
             </div>
+
+            {isHostView ? (
+              <div className="volume-control">
+                <label htmlFor="volume-slider" className="volume-label">Volume</label>
+                <input
+                  id="volume-slider"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={volume}
+                  onChange={(e) => setVolume(parseFloat(e.target.value))}
+                  className="volume-slider"
+                />
+              </div>
+            ) : null}
           </section>
 
           <section className="card">
@@ -1325,6 +1406,7 @@ export default function App() {
                   className="secondary-button"
                   type="button"
                   onClick={() => copyToClipboard(roomCode, "Room code", "room-code")}
+                  disabled={!roomCode}
                 >
                   {copiedField === "room-code" ? "✓ Copied" : "Copy"}
                 </button>

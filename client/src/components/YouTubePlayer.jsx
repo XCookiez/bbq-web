@@ -28,7 +28,8 @@ const YouTubePlayer = forwardRef(function YouTubePlayer({
   onPlaybackStarted,
   resumeToken,
   visible = false,
-  playbackCheckDelayMs = 1200
+  playbackCheckDelayMs = 1200,
+  volume = 1
 }, ref) {
   const elementRef = useRef(null);
   const playerRef = useRef(null);
@@ -73,6 +74,20 @@ const YouTubePlayer = forwardRef(function YouTubePlayer({
 
       playerRef.current.pauseVideo();
       return true;
+    },
+    setVolume(volume) {
+      if (!playerRef.current) {
+        return;
+      }
+
+      playerRef.current.setVolume(volume * 100);
+    },
+    getVolume() {
+      if (!playerRef.current) {
+        return 100;
+      }
+
+      return playerRef.current.getVolume() / 100;
     }
   }), [playbackCheckDelayMs]);
 
@@ -163,13 +178,10 @@ const YouTubePlayer = forwardRef(function YouTubePlayer({
   }, [isPlaying]);
 
   useEffect(() => {
-    if (!resumeToken || !isPlaying || !playerRef.current) {
-      return;
+    if (playerRef.current && isPlayerReady) {
+      playerRef.current.setVolume(volume * 100);
     }
-
-    playerRef.current.playVideo();
-    verifyPlaybackStarted();
-  }, [isPlaying, resumeToken]);
+  }, [volume, isPlayerReady]);
 
   useEffect(() => {
     window.clearInterval(progressTimerRef.current);

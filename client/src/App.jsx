@@ -351,7 +351,7 @@ export default function App() {
       window.clearTimeout(searchTimerRef.current);
       searchAbortRef.current?.abort();
     };
-  }, [roomCode]);
+  }, [roomCode, youtubeQuery]);
 
   useEffect(() => {
     if (!roomCode) return;
@@ -448,7 +448,16 @@ export default function App() {
     }
 
     if (sessionState?.isPlaying) {
-      localPlayerRef.current.play().catch(() => {});
+      localPlayerRef.current.play()
+        .then(() => {
+          setPlaybackNeedsResume(false);
+          setShouldPromptResume(false);
+        })
+        .catch((error) => {
+          console.warn("Local playback blocked:", error);
+          setPlaybackNeedsResume(true);
+          setShouldPromptResume(true);
+        });
       return;
     }
 
@@ -815,10 +824,10 @@ export default function App() {
           setPlaybackNeedsResume(false);
           setShouldPromptResume(false);
         })
-        .catch(() => {
-          if (shouldPromptResume) {
-            setPlaybackNeedsResume(true);
-          }
+        .catch((error) => {
+          console.warn("Toggle play blocked:", error);
+          setPlaybackNeedsResume(true);
+          setShouldPromptResume(true);
         });
     }
 
@@ -898,10 +907,10 @@ export default function App() {
           setPlaybackNeedsResume(false);
           setShouldPromptResume(false);
         })
-        .catch(() => {
-          if (shouldPromptResume) {
-            setPlaybackNeedsResume(true);
-          }
+        .catch((error) => {
+          console.warn("Resume play blocked:", error);
+          setPlaybackNeedsResume(true);
+          setShouldPromptResume(true);
         });
       return;
     }
@@ -1304,6 +1313,11 @@ export default function App() {
                       className="text-input search-input"
                       value={youtubeQuery}
                       onChange={(event) => setYoutubeQuery(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          performYouTubeSearch();
+                        }
+                      }}
                       placeholder="Search music..."
                   />
 

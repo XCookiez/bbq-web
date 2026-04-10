@@ -689,8 +689,18 @@ app.get("/api/youtube/search", async (req, res) => {
     addUsage(100);
     res.json({ items, cached: false });
   } catch (error) {
-    res.status(500).json({
-      error: error.response?.data?.error?.message ?? "Failed to search YouTube."
+    console.error("YouTube search error:", {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+      code: error.code
+    });
+
+    const statusCode = error.response?.status || 500;
+    const errorMessage = error.response?.data?.error?.message || error.message || "Failed to search YouTube.";
+    
+    res.status(statusCode).json({
+      error: errorMessage
     });
   }
 });

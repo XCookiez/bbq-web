@@ -157,6 +157,7 @@ input {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
   gap: clamp(16px, 2vw, 24px);
+  align-items: start;
 }
 
 .stack {
@@ -300,8 +301,12 @@ input {
 .now-playing-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 12px;
+  margin: 12px 0 16px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .meta-chip {
@@ -335,12 +340,19 @@ input {
 }
 
 .tab-row {
-  display: inline-flex;
-  gap: 8px;
+  display: fit-content;
+  flex-direction: column;
+  gap: 12px;
   margin-bottom: 14px;
+}
+
+.tab-buttons {
+  display: flex;
+  gap: 8px;
   padding: 6px;
-  border-radius: 999px;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.05);
+  width: fit-content;
 }
 
 .tab-button {
@@ -900,11 +912,27 @@ input {
   }
 
   .tab-row {
+    display: fit-content;
+    justify-content: space-between;
+    align-items: center;
     width: 100%;
+    gap: 12px;
   }
 
-  .tab-button {
-    flex: 1 1 0;
+  .tab-buttons {
+    display: flex;
+    gap: 8px;
+    padding: 6px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .now-playing-meta {
+    margin: 0;
+    padding: 8px 12px;
+    gap: 8px;
+    width: fit-content;
+    min-width: 0;
   }
 
   .search-item,
